@@ -1,12 +1,14 @@
-import pool from "../config/db.js";
+import db from "../config/db.js";
 import { hashedpassword, compairPassword } from "../helper/hashing.js";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 async function updateAdminPassword() {
-  const connection = await pool.getConnection();
+  let connection;
   try {
+    connection = await db.getConnection();
+    
     // Get admin details from command line arguments
     const args = process.argv.slice(2);
     const email = args[0];
@@ -53,8 +55,10 @@ async function updateAdminPassword() {
   } catch (error) {
     console.error("❌ Error updating admin password:", error);
   } finally {
-    connection.release();
-    pool.end();
+    if (connection) {
+      connection.release();
+    }
+    // db.end(); // Don't end the pool, server might need it
   }
 }
 

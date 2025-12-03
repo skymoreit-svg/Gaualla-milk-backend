@@ -1,8 +1,9 @@
-import pool from "../config/db.js";
+import db from "../config/db.js";
 
 async function migrate() {
-  const connection = await pool.getConnection();
+  let connection;
   try {
+    connection = await db.getConnection();
     await connection.beginTransaction();
 
     console.log("🚀 Running admin migrations...");
@@ -23,11 +24,15 @@ async function migrate() {
     console.log("🎉 Admin migrations completed successfully!");
 
   } catch (err) {
-    await connection.rollback();
+    if (connection) {
+      await connection.rollback();
+    }
     console.error("❌ Admin migration failed:", err);
   } finally {
-    connection.release();
-    pool.end();
+    if (connection) {
+      connection.release();
+    }
+    // db.end(); // Don't end the pool, server needs it
   }
 }
 

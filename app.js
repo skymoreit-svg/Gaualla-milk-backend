@@ -35,16 +35,16 @@ app.get("/",async(req,res)=>{
   return res.json({ working:true})
 })
 
-import adminRoutes from "./Route/adminRoutes.js"
+
 
  //admin authentication routes
-app.use("/api/admin", adminRoutes);
+app.use("/admin", adminRoutes);
 
 //admin protected routes (add middleware later if needed)
-app.use("/api/admin/category",CategoryRoute);
-app.use("/api/admin/product",ProductRoute);
-app.use("/api/admin/banner",BannerRoutes);
-app.use("/api/admin/blog",blogRoute)
+app.use("/admin/category",CategoryRoute);
+app.use("/admin/product",ProductRoute);
+app.use("/admin/banner",BannerRoutes);
+app.use("/admin/blog",blogRoute)
 
 // all
 app.use("/api/user/category",CategoryRoute)
