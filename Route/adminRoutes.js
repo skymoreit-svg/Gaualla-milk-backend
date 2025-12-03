@@ -1,16 +1,16 @@
 import express from "express";
-import { adminLogin, verifyAdmin } from "../controller/admin/adminController.js";
+import { adminController } from "../controller/admin/adminAuthController.js";
+import { adminMiddleware } from "../middlewere/adminMiddleware.js";
 
-const router = express.Router();
+const routes = express.Router();
 
-// POST /admin/login
-router.post("/login", adminLogin);
+// Public routes
+routes.post("/login", adminController.adminLogin);
+routes.get("/verify", adminController.adminVerify);
+routes.get("/logout", adminController.adminLogout);
 
-// GET /admin/verify
-router.get("/verify", verifyAdmin);
+// Protected routes (require admin authentication)
+routes.get("/getadmin", adminMiddleware, adminController.getAdmin);
+routes.put("/update-password", adminMiddleware, adminController.updateAdminPassword);
 
-
-
-
-
-export default router;
+export default routes;

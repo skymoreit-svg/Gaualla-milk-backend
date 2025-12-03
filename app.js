@@ -12,6 +12,8 @@ import orderRoute from "./Route/orderRoutes.js"
 import blogRoute from "./Route/blogRoute.js"
 import razorpayRoutes from "./Route/Razerpay.js"
 import db from "./config/db.js"   
+import adminRoutes from "./Route/adminRoutes.js"
+
 
 dotenv.config()
 const app= express()
@@ -35,12 +37,14 @@ app.get("/",async(req,res)=>{
 
 import adminRoutes from "./Route/adminRoutes.js"
 
-// admin
-app.use("/admin", adminRoutes);
-app.use("/admin/category",CategoryRoute);
-app.use("/admin/product",ProductRoute);
-app.use("/admin/banner",BannerRoutes);
-app.use("/admin/blog",blogRoute)
+ //admin authentication routes
+app.use("/api/admin", adminRoutes);
+
+//admin protected routes (add middleware later if needed)
+app.use("/api/admin/category",CategoryRoute);
+app.use("/api/admin/product",ProductRoute);
+app.use("/api/admin/banner",BannerRoutes);
+app.use("/api/admin/blog",blogRoute)
 
 // all
 app.use("/api/user/category",CategoryRoute)

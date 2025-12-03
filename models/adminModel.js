@@ -1,40 +1,34 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
-export const findAdminByEmail = (email) => {
-  return new Promise((resolve, reject) => {
-    const query = "SELECT * FROM admins WHERE email = ?";
-    db.query(query, [email], (err, results) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(results[0]); // Return the first result or undefined
-      }
-    });
-  });
-};
+async function migrate() {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
 
-export const createAdmin = (name, email, hashedPassword) => {
-  return new Promise((resolve, reject) => {
-    const query = "INSERT INTO admins (name, email, password) VALUES (?, ?, ?)";
-    db.query(query, [name, email, hashedPassword], (err, results) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(results.insertId);
-      }
-    });
-  });
-};
+    console.log("🚀 Running admin migrations...");
 
-export const findAdminById = (id) => {
-  return new Promise((resolve, reject) => {
-    const query = "SELECT * FROM admins WHERE id = ?";
-    db.query(query, [id], (err, results) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(results[0]);
-      }
-    });
-  });
-};
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id BIGINT(20) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    console.log("✅ admins table ready");
+
+    await connection.commit();
+    console.log("🎉 Admin migrations completed successfully!");
+
+  } catch (err) {
+    await connection.rollback();
+    console.error("❌ Admin migration failed:", err);
+  } finally {
+    connection.release();
+    pool.end();
+  }
+}
+
+migrate();

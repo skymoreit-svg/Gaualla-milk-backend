@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon app.js",
-    "migrate": "node models/userModel.js"
+    "migrate": "node models/userModel.js",
+    "migrate:admin": "node models/adminModel.js",
+    "admin:create": "node scripts/createAdmin.js",
+    "admin:update-password": "node scripts/updateAdminPassword.js"
   },
   "author": "",
   "license": "ISC",
