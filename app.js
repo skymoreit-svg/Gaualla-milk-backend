@@ -14,6 +14,8 @@ import razorpayRoutes from "./Route/Razerpay.js"
 import db from "./config/db.js"   
 import adminRoutes from "./Route/adminRoutes.js"
 
+import userRoutes from "./Route/userRoutes.js";
+
 
 dotenv.config()
 const app= express()
@@ -59,6 +61,8 @@ app.use("/api/user/address",AddressRoute)
 app.use("/api/user/order",orderRoute)
 
 app.use('/api/user/razorpay', razorpayRoutes);
+
+app.use("/api/users", userRoutes);
 
 const PORT = process.env.PORT || 9002;
 
