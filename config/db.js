@@ -19,22 +19,25 @@ dotenv.config();
   }
 })();
 
-const db = mysql.createPool({
+const db = mysqlPromise.createPool({
   connectionLimit: 10,
   host: "localhost",
   user: "root",
   password: process.env.DB_PASSWORD || "",
   database: "admindb",
+  waitForConnections: true,
+  queueLimit: 0,
 });
 
-// Check DB connection
-db.getConnection((err, connection) => {
-  if (err) {
-    console.log("❌ MySQL Connection Failed:", err.message);
-  } else {
+// Check DB connection (async)
+(async () => {
+  try {
+    const connection = await db.getConnection();
     console.log("✅ MySQL Connected Successfully!");
     connection.release();
+  } catch (err) {
+    console.log("❌ MySQL Connection Failed:", err.message);
   }
-});
+})();
 
 export default db;
