@@ -11,6 +11,7 @@
     "migrate": "node models/userModel.js",
     "migrate:admin": "node models/adminModel.js",
     "migrate:blogs": "node scripts/migrateBlogs.js",
+    "seed:blogs": "node scripts/seedBlogs.js",
     "admin:create": "node scripts/createAdmin.js",
     "admin:update-password": "node scripts/updateAdminPassword.js"
   },
