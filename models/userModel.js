@@ -216,6 +216,8 @@ await connection.query(`
     short_description TEXT,
     yt_link VARCHAR(255) NULL,
     type ENUM('video', 'img') NOT NULL DEFAULT 'img',
+    tag VARCHAR(255) DEFAULT NULL,
+    readtime VARCHAR(50) DEFAULT NULL,
     full_description LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

@@ -1,35 +1,41 @@
 import mysql from "mysql2";
 import mysqlPromise from "mysql2/promise";
 import dotenv from "dotenv";
+
 dotenv.config();
 
-// Create a connection to create the database if it doesn't exist
+// 1️⃣ Create database if not exists
 (async () => {
   try {
     const tempConnection = await mysqlPromise.createConnection({
-      host: "localhost",
-      user: "root",
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
       password: process.env.DB_PASSWORD || "",
     });
-    await tempConnection.query("CREATE DATABASE IF NOT EXISTS admindb");
-    console.log("✅ Database 'admindb' ready");
+
+    await tempConnection.query(
+      `CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`
+    );
+
+    console.log(`✅ Database '${process.env.DB_NAME}' ready`);
     await tempConnection.end();
   } catch (err) {
     console.log("❌ Database Creation Failed:", err.message);
   }
 })();
 
+// 2️⃣ Create connection pool
 const db = mysqlPromise.createPool({
   connectionLimit: 10,
-  host: "localhost",
-  user: "root",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
   password: process.env.DB_PASSWORD || "",
-  database: "admindb",
+  database: process.env.DB_NAME,
   waitForConnections: true,
   queueLimit: 0,
 });
 
-// Check DB connection (async)
+// 3️⃣ Test DB connection
 (async () => {
   try {
     const connection = await db.getConnection();

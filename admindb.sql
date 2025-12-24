@@ -16,8 +16,8 @@ SET time_zone = "+00:00";
 --
 
 -- Create database if it doesn't exist
-CREATE DATABASE IF NOT EXISTS `admindb`;
-USE `admindb`;
+CREATE DATABASE IF NOT EXISTS `gauala`;
+USE `gauala`;
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
