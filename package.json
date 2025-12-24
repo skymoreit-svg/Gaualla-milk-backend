@@ -12,6 +12,7 @@
     "migrate:admin": "node models/adminModel.js",
     "migrate:blogs": "node scripts/migrateBlogs.js",
     "seed:blogs": "node scripts/seedBlogs.js",
+    "clear:blogs": "node scripts/clearBlogs.js",
     "admin:create": "node scripts/createAdmin.js",
     "admin:update-password": "node scripts/updateAdminPassword.js"
   },
