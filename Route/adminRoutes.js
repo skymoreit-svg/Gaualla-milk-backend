@@ -2,6 +2,7 @@ import express from "express";
 import { adminController } from "../controller/admin/adminAuthController.js";
 import { adminMiddleware } from "../middlewere/adminMiddleware.js";
 import { fetchUsers } from "../controller/user/userController.js";
+import { getDashboardStats } from "../controller/admin/dashboardController.js";
 
 const routes = express.Router();
 
@@ -14,5 +15,6 @@ routes.get("/logout", adminController.adminLogout);
 routes.get("/getadmin", adminMiddleware, adminController.getAdmin);
 routes.put("/update-password", adminMiddleware, adminController.updateAdminPassword);
 routes.get("/users", adminMiddleware, fetchUsers);
+routes.get("/dashboard/stats", adminMiddleware, getDashboardStats);
 
 export default routes;
