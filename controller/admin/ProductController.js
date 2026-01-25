@@ -381,6 +381,21 @@ return res.json({success:true,product});
 
 }
 
+// Get product by ID (for admin edit page)
+const getProductById = async(req,res)=>{
+  try {
+    const { id } = req.params;
+    const [product] = await pool.query(`SELECT * FROM products WHERE id = ?`, [id]);
+    if(product.length === 0){
+      return res.json({success:false, message: "Product not found"})
+    }
+    return res.json({success:true, product: product[0]});
+  } catch (error) {
+    console.error("Error fetching product by ID:", error);
+    return res.json({success:false, message: error.message});
+  }
+}
+
 
 
 
@@ -572,6 +587,7 @@ const deleteProduct = async (req, res) => {
 
 export const Categorycontroler={
    createCategory ,
+   getProductById,
    getCategory,
    getSingleCategory,
    updateCategory,

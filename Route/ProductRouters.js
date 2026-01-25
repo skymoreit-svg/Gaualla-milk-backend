@@ -5,6 +5,7 @@ const route = express.Router();
 
 route.post("/create",uploadsingleimg.array("images",9),Categorycontroler.creatProduct)
 route.get("/",Categorycontroler.getallProduct)
+route.get("/id/:id",Categorycontroler.getProductById) // Get product by ID (for admin edit)
 route.get("/:category",Categorycontroler.getProductByCategory)
 route.get("/product/:slug",Categorycontroler.getSinglePRoduct)
 route.get("/product/search/:search",Categorycontroler.searchProduct)
