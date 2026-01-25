@@ -274,19 +274,55 @@ export async function createRefund(params) {
  * Verify Razorpay webhook signature
  */
 export function verifyWebhookSignature(webhookBody, signature, secret) {
+  console.log(`\n${"-".repeat(80)}`);
+  console.log(`🔐 Starting signature verification...`);
+  console.log(`📝 Webhook Body Length: ${webhookBody.length} characters`);
+  console.log(`🔐 Signature Provided: ${signature ? "Yes" : "No"}`);
+  console.log(`🔑 Secret Provided: ${secret ? "Yes" : "No"}`);
+  if (secret) {
+    console.log(`🔑 Secret Length: ${secret.length} characters`);
+  }
   try {
-    if (!secret || !signature || !webhookBody) return false;
+    if (!secret || !signature || !webhookBody) {
+      console.log(`❌ Signature verification failed: Missing required parameters`);
+      console.log(`   - Secret: ${secret ? "Present" : "MISSING"}`);
+      console.log(`   - Signature: ${signature ? "Present" : "MISSING"}`);
+      console.log(`   - Webhook Body: ${webhookBody ? "Present" : "MISSING"}`);
+      return false;
+    }
+    
+    console.log(`🔄 Computing expected signature using HMAC-SHA256...`);
     const expectedSignature = crypto
       .createHmac("sha256", secret)
       .update(webhookBody)
       .digest("hex");
 
+    console.log(`📊 Signature Comparison:`);
+    console.log(`   - Received Signature Length: ${signature.length}`);
+    console.log(`   - Expected Signature Length: ${expectedSignature.length}`);
+    console.log(`   - Received Signature (first 20 chars): ${signature.substring(0, 20)}...`);
+    console.log(`   - Expected Signature (first 20 chars): ${expectedSignature.substring(0, 20)}...`);
+
     const sigBuf = Buffer.from(String(signature));
     const expectedBuf = Buffer.from(expectedSignature);
-    if (sigBuf.length !== expectedBuf.length) return false;
-    return crypto.timingSafeEqual(sigBuf, expectedBuf);
+    
+    if (sigBuf.length !== expectedBuf.length) {
+      console.log(`❌ Signature verification failed: Length mismatch`);
+      console.log(`${"-".repeat(80)}\n`);
+      return false;
+    }
+    
+    const isValid = crypto.timingSafeEqual(sigBuf, expectedBuf);
+    console.log(`✅ Signature verification result: ${isValid ? "VALID" : "INVALID"}`);
+    console.log(`${"-".repeat(80)}\n`);
+    return isValid;
   } catch (error) {
     console.error("❌ Error verifying webhook signature:", error);
+    console.error("❌ Error details:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    console.log(`${"-".repeat(80)}\n`);
     return false;
   }
 }

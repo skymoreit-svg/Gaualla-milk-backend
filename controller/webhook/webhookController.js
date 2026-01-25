@@ -11,18 +11,42 @@ import crypto from "crypto";
  * Handles payment events securely with signature verification
  */
 export const handleRazorpayWebhook = async (req, res) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n${"=".repeat(80)}`);
+  console.log(`🔔 WEBHOOK REQUEST RECEIVED at ${timestamp}`);
+  console.log(`${"=".repeat(80)}`);
+  console.log(`📍 Endpoint: ${req.method} ${req.path || req.url}`);
+  console.log(`🌐 IP Address: ${req.ip || req.connection.remoteAddress}`);
+  console.log(`📋 Headers:`, JSON.stringify(req.headers, null, 2));
+
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
   const signature = req.headers["x-razorpay-signature"];
 
   // Get raw body for signature verification
   // req.body is already parsed as Buffer when using express.raw()
   const webhookBody = req.body.toString();
+  
+  console.log(`📦 Raw Body Length: ${webhookBody.length} characters`);
+  console.log(`🔐 Signature Header: ${signature ? "Present" : "MISSING"}`);
+  if (signature) {
+    console.log(`🔐 Signature Value: ${signature.substring(0, 20)}... (truncated for security)`);
+  }
+  console.log(`🔑 Webhook Secret: ${webhookSecret ? "Configured" : "NOT CONFIGURED"}`);
+  if (webhookSecret) {
+    console.log(`🔑 Webhook Secret Length: ${webhookSecret.length} characters`);
+    console.log(`🔑 Webhook Secret Preview: ${webhookSecret.substring(0, 10)}...${webhookSecret.substring(webhookSecret.length - 5)} (masked)`);
+    console.log(`🔑 Webhook Secret Type: ${typeof webhookSecret}`);
+  } else {
+    console.error(`❌ RAZORPAY_WEBHOOK_SECRET is undefined or empty`);
+    console.error(`❌ Available env vars with 'WEBHOOK':`, Object.keys(process.env).filter(key => key.includes('WEBHOOK')));
+    console.error(`❌ Available env vars with 'RAZORPAY':`, Object.keys(process.env).filter(key => key.includes('RAZORPAY')));
+  }
 
   if (!webhookSecret) {
     console.error("❌ RAZORPAY_WEBHOOK_SECRET not configured");
+    console.log(`${"=".repeat(80)}\n`);
     return res.status(500).json({
       success: false,
-      
       message: "Webhook secret not configured",
     });
   }
@@ -31,8 +55,20 @@ export const handleRazorpayWebhook = async (req, res) => {
   let event;
   try {
     event = JSON.parse(webhookBody);
+    console.log(`✅ JSON Parsed Successfully`);
+    console.log(`📄 Event Structure:`, {
+      event: event.event,
+      contains: {
+        payment_link: !!event.payload?.payment_link,
+        payment: !!event.payload?.payment,
+        refund: !!event.payload?.refund,
+      }
+    });
   } catch (error) {
     console.error("❌ Invalid JSON in webhook body");
+    console.error("❌ Parse Error:", error.message);
+    console.log(`📦 Body Preview (first 500 chars):`, webhookBody.substring(0, 500));
+    console.log(`${"=".repeat(80)}\n`);
     return res.status(400).json({
       success: false,
       message: "Invalid JSON in webhook body",
@@ -40,24 +76,44 @@ export const handleRazorpayWebhook = async (req, res) => {
   }
 
   // Verify webhook signature
-  if (!verifyWebhookSignature(webhookBody, signature, webhookSecret)) {
+  const signatureValid = verifyWebhookSignature(webhookBody, signature, webhookSecret);
+  console.log(`🔐 Signature Verification: ${signatureValid ? "✅ VALID" : "❌ INVALID"}`);
+  
+  if (!signatureValid) {
     console.error("❌ Invalid webhook signature");
+    console.error("❌ Expected signature based on body and secret");
+    console.log(`📦 Body (first 200 chars):`, webhookBody.substring(0, 200));
+    console.log(`${"=".repeat(80)}\n`);
     return res.status(401).json({
       success: false,
       message: "Invalid webhook signature",
     });
   }
+
   const eventType = event.event;
   const paymentLinkEntity = event.payload?.payment_link?.entity || null;
   const paymentEntity = event.payload?.payment?.entity || null;
   const refundEntity = event.payload?.refund?.entity || null;
   const entity = paymentLinkEntity || paymentEntity || refundEntity;
 
-  console.log(`📨 Webhook received: ${eventType}`);
+  console.log(`📨 Webhook Event Type: ${eventType}`);
+  console.log(`🆔 Event ID: ${event.id || "N/A"}`);
+  if (paymentEntity) {
+    console.log(`💳 Payment ID: ${paymentEntity.id || "N/A"}`);
+    console.log(`💰 Payment Amount: ${paymentEntity.amount ? paymentEntity.amount / 100 : "N/A"}`);
+    console.log(`📊 Payment Status: ${paymentEntity.status || "N/A"}`);
+  }
+  if (paymentLinkEntity) {
+    console.log(`🔗 Payment Link ID: ${paymentLinkEntity.id || "N/A"}`);
+  }
+  if (refundEntity) {
+    console.log(`🔄 Refund ID: ${refundEntity.id || "N/A"}`);
+  }
 
   // Store webhook event for audit trail
   let webhookEventId;
   try {
+    console.log(`💾 Storing webhook event in database...`);
     const headerEventId =
       req.headers["x-razorpay-event-id"] ||
       req.headers["x-razorpay-eventid"] ||
@@ -76,6 +132,17 @@ export const handleRazorpayWebhook = async (req, res) => {
     const amount =
       typeof entity?.amount === "number" ? entity.amount / 100 : null;
     const status = entity?.status || null;
+
+    console.log(`📝 Event Details for DB:`, {
+      eventId,
+      eventType,
+      entityType,
+      entityId,
+      paymentId,
+      paymentLinkId,
+      amount,
+      status,
+    });
 
     const [result] = await pool.query(
       `INSERT INTO webhook_events (
@@ -97,44 +164,67 @@ export const handleRazorpayWebhook = async (req, res) => {
       ]
     );
     webhookEventId = result.insertId;
+    console.log(`✅ Webhook event stored in database with ID: ${webhookEventId}`);
   } catch (error) {
     console.error("❌ Error storing webhook event:", error);
+    console.error("❌ Error details:", {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+    });
     // Continue processing even if storage fails
   }
 
   try {
+    console.log(`🔄 Processing webhook event: ${eventType}`);
+    
     // Handle different event types
     switch (eventType) {
       case "payment_link.paid":
+        console.log(`📞 Calling handlePaymentLinkPaid...`);
         await handlePaymentLinkPaid(event.payload);
+        console.log(`✅ handlePaymentLinkPaid completed`);
         break;
 
       case "payment_link.expired":
+        console.log(`📞 Calling handlePaymentLinkExpired...`);
         await handlePaymentLinkExpired(event.payload);
+        console.log(`✅ handlePaymentLinkExpired completed`);
         break;
 
       case "payment_link.cancelled":
+        console.log(`📞 Calling handlePaymentLinkCancelled...`);
         await handlePaymentLinkCancelled(event.payload);
+        console.log(`✅ handlePaymentLinkCancelled completed`);
         break;
 
       case "payment.captured":
+        console.log(`📞 Calling handlePaymentCaptured...`);
         await handlePaymentCaptured(event.payload);
+        console.log(`✅ handlePaymentCaptured completed`);
         break;
 
       case "payment.failed":
+        console.log(`📞 Calling handlePaymentFailed...`);
         await handlePaymentFailed(event.payload);
+        console.log(`✅ handlePaymentFailed completed`);
         break;
 
       case "refund.created":
+        console.log(`📞 Calling handleRefundCreated...`);
         await handleRefundCreated(event.payload);
+        console.log(`✅ handleRefundCreated completed`);
         break;
 
       case "refund.processed":
+        console.log(`📞 Calling handleRefundProcessed...`);
         await handleRefundProcessed(event.payload);
+        console.log(`✅ handleRefundProcessed completed`);
         break;
 
       default:
         console.log(`⚠️ Unhandled webhook event: ${eventType}`);
+        console.log(`⚠️ Full event payload:`, JSON.stringify(event, null, 2));
     }
 
     // Mark webhook as processed
@@ -143,20 +233,28 @@ export const handleRazorpayWebhook = async (req, res) => {
         `UPDATE webhook_events SET processed = true, processed_at = CURRENT_TIMESTAMP WHERE id = ?`,
         [webhookEventId]
       );
+      console.log(`✅ Webhook event marked as processed in database`);
     }
 
+    console.log(`✅ Webhook processing completed successfully`);
+    console.log(`${"=".repeat(80)}\n`);
+    
     return res.json({ success: true, message: "Webhook processed" });
   } catch (error) {
     console.error(`❌ Error processing webhook ${eventType}:`, error);
+    console.error(`❌ Error stack:`, error.stack);
 
     // Mark webhook with error
     if (webhookEventId) {
       await pool.query(
-        `UPDATE webhook_events SET error_message = ? WHERE id = ?`,
+        `UPDATE webhook_events SET error_message = ?, processed = false WHERE id = ?`,
         [error.message, webhookEventId]
       );
+      console.log(`❌ Webhook event marked with error in database`);
     }
 
+    console.log(`${"=".repeat(80)}\n`);
+    
     return res.status(500).json({
       success: false,
       message: "Webhook processing failed",
@@ -246,27 +344,44 @@ async function handlePaymentLinkCancelled(payload) {
 async function handlePaymentCaptured(payload) {
   const payment = payload.payment.entity;
 
-  console.log(`💰 Payment captured: ${payment.id}`);
+  console.log(`\n${"-".repeat(80)}`);
+  console.log(`💰 Processing payment.captured event`);
+  console.log(`💳 Payment ID: ${payment.id}`);
+  console.log(`📊 Payment Status: ${payment.status}`);
+  console.log(`💰 Amount: ${payment.amount ? payment.amount / 100 : "N/A"}`);
+  console.log(`🔑 Razorpay Order ID: ${payment.order_id || "N/A"}`);
 
   // Check if transaction exists
+  console.log(`🔍 Checking for existing transaction with payment_id: ${payment.id}`);
   const [existingTransactions] = await pool.query(
     `SELECT id, order_id, site_user_id, razorpay_order_id FROM transactions WHERE razorpay_payment_id = ?`,
     [payment.id]
   );
 
+  console.log(`📊 Found ${existingTransactions.length} existing transaction(s)`);
+
   if (existingTransactions.length > 0) {
     const transaction = existingTransactions[0];
+    console.log(`📝 Existing Transaction Details:`, {
+      id: transaction.id,
+      order_id: transaction.order_id,
+      site_user_id: transaction.site_user_id,
+      razorpay_order_id: transaction.razorpay_order_id,
+    });
     
     // Update existing transaction
+    console.log(`🔄 Updating transaction status to 'captured'...`);
     await pool.query(
       `UPDATE transactions 
        SET status = 'captured', captured = true, updated_at = CURRENT_TIMESTAMP
        WHERE razorpay_payment_id = ?`,
       [payment.id]
     );
+    console.log(`✅ Transaction updated successfully`);
 
     // Update order status if linked to an order
     if (transaction.order_id) {
+      console.log(`🔄 Updating order ${transaction.order_id} status...`);
       await pool.query(
         `UPDATE orders 
          SET payment_status = 'paid', status = 'processing', updated_at = CURRENT_TIMESTAMP
@@ -275,6 +390,9 @@ async function handlePaymentCaptured(payload) {
       );
       console.log(`✅ Order ${transaction.order_id} updated to paid status via webhook`);
     } else if (transaction.razorpay_order_id) {
+      console.log(`🔍 Transaction has razorpay_order_id but no order_id. Searching for linked order...`);
+      console.log(`🔑 Razorpay Order ID: ${transaction.razorpay_order_id}`);
+      
       // Try to find order by razorpay_order_id from transactions table
       // This handles the case where webhook arrives before verifyOrder links the order
       const [ordersByRazorpayOrder] = await pool.query(
@@ -285,8 +403,11 @@ async function handlePaymentCaptured(payload) {
         [transaction.razorpay_order_id, payment.id]
       );
       
+      console.log(`📊 Found ${ordersByRazorpayOrder.length} order(s) by razorpay_order_id query`);
+      
       if (ordersByRazorpayOrder.length > 0) {
         const orderId = ordersByRazorpayOrder[0].id;
+        console.log(`✅ Found order ${orderId}. Linking transaction and updating order...`);
         // Update transaction with order_id
         await pool.query(
           `UPDATE transactions SET order_id = ? WHERE razorpay_payment_id = ?`,
@@ -301,6 +422,7 @@ async function handlePaymentCaptured(payload) {
         );
         console.log(`✅ Order ${orderId} found and updated to paid status via webhook (by razorpay_order_id)`);
       } else {
+        console.log(`⚠️ No order found by direct razorpay_order_id match. Trying alternative search...`);
         // Try to find order by matching razorpay_order_id in transactions
         // Look for any transaction with this razorpay_order_id that has an order_id
         const [linkedOrders] = await pool.query(
@@ -310,8 +432,11 @@ async function handlePaymentCaptured(payload) {
           [transaction.razorpay_order_id]
         );
         
+        console.log(`📊 Found ${linkedOrders.length} linked order(s) by matching razorpay_order_id`);
+        
         if (linkedOrders.length > 0) {
           const orderId = linkedOrders[0].order_id;
+          console.log(`✅ Found linked order ${orderId}. Updating transaction and order...`);
           // Update this transaction with order_id
           await pool.query(
             `UPDATE transactions SET order_id = ? WHERE razorpay_payment_id = ?`,
@@ -325,39 +450,52 @@ async function handlePaymentCaptured(payload) {
             [orderId]
           );
           console.log(`✅ Order ${orderId} found and updated to paid status via webhook (by matching razorpay_order_id)`);
+        } else {
+          console.log(`⚠️ No order found with matching razorpay_order_id. Order will be linked when verifyOrder runs.`);
         }
       }
+    } else {
+      console.log(`⚠️ Transaction has no order_id or razorpay_order_id. Will be linked when verifyOrder runs.`);
     }
-  } else {
-    // Transaction doesn't exist - create it (webhook arrived before verifyOrder)
-    // This ensures all payment data is stored even if verifyOrder hasn't run yet
-    const amount = payment.amount ? payment.amount / 100 : 0;
-    
-    try {
-      const [result] = await pool.query(
-        `INSERT INTO transactions (
-          razorpay_payment_id, razorpay_order_id, site_user_id,
-          amount, currency, status, captured, payment_method, payment_method_type,
-          bank, wallet, vpa, description, razorpay_created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          payment.id,
-          payment.order_id || null,
-          null, // site_user_id - will be updated when verifyOrder runs
+    } else {
+      // Transaction doesn't exist - create it (webhook arrived before verifyOrder)
+      // This ensures all payment data is stored even if verifyOrder hasn't run yet
+      console.log(`⚠️ No existing transaction found. Creating new transaction record...`);
+      const amount = payment.amount ? payment.amount / 100 : 0;
+      
+      try {
+        console.log(`📝 Creating transaction with data:`, {
+          razorpay_payment_id: payment.id,
+          razorpay_order_id: payment.order_id || null,
           amount,
-          payment.currency || "INR",
-          "captured",
-          true,
-          payment.method || null,
-          payment.method || null,
-          payment.bank || null,
-          payment.wallet || null,
-          payment.vpa || null,
-          payment.description || null,
-          payment.created_at || null,
-        ]
-      );
-      console.log(`✅ Transaction record created for payment ${payment.id} (order will be linked when verifyOrder runs)`);
+          currency: payment.currency || "INR",
+          status: "captured",
+        });
+        
+        const [result] = await pool.query(
+          `INSERT INTO transactions (
+            razorpay_payment_id, razorpay_order_id, site_user_id,
+            amount, currency, status, captured, payment_method, payment_method_type,
+            bank, wallet, vpa, description, razorpay_created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            payment.id,
+            payment.order_id || null,
+            null, // site_user_id - will be updated when verifyOrder runs
+            amount,
+            payment.currency || "INR",
+            "captured",
+            true,
+            payment.method || null,
+            payment.method || null,
+            payment.bank || null,
+            payment.wallet || null,
+            payment.vpa || null,
+            payment.description || null,
+            payment.created_at || null,
+          ]
+        );
+        console.log(`✅ Transaction record created with ID: ${result.insertId} for payment ${payment.id} (order will be linked when verifyOrder runs)`);
       
       // Try to find and update order if razorpay_order_id matches
       if (payment.order_id) {
@@ -384,11 +522,19 @@ async function handlePaymentCaptured(payload) {
             [orderId]
           );
           console.log(`✅ Order ${orderId} found and updated to paid status via webhook (new transaction linked)`);
+        } else {
+          console.log(`⏳ No order found yet. Will be linked when verifyOrder runs.`);
         }
       }
     } catch (error) {
       console.error(`❌ Error creating transaction for payment ${payment.id}:`, error);
+      console.error(`❌ Error details:`, {
+        message: error.message,
+        code: error.code,
+        sqlState: error.sqlState,
+      });
     }
+    console.log(`${"-".repeat(80)}\n`);
   }
 }
 

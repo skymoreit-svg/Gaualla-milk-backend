@@ -22,6 +22,19 @@ import userRoutes from "./Route/userRoutes.js";
 
 
 dotenv.config()
+
+// Verify webhook secret is loaded on startup
+const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+if (webhookSecret) {
+  console.log(`✅ RAZORPAY_WEBHOOK_SECRET loaded successfully`);
+  console.log(`   - Secret Length: ${webhookSecret.length} characters`);
+  console.log(`   - Secret Preview: ${webhookSecret.substring(0, 10)}...${webhookSecret.substring(webhookSecret.length - 5)} (masked)`);
+} else {
+  console.error(`❌ WARNING: RAZORPAY_WEBHOOK_SECRET is not configured!`);
+  console.error(`❌ Webhook signature verification will fail!`);
+  console.error(`❌ Please add RAZORPAY_WEBHOOK_SECRET to your .env file`);
+}
+
 const app= express()  
 
 app.use(
@@ -39,7 +52,14 @@ app.use(
 // app.use("/api/webhooks", express.raw({ type: "application/json" }), webhookRoutes);
 // Production-compatible webhook endpoint (as requested)
 // Keep raw body for signature verification
-app.use("/api/webhook", express.raw({ type: "application/json" }), webhookRoutes);
+// app.use("/api/webhook", express.raw({ type: "application/json" }), webhookRoutes);
+// Razorpay dashboard configured endpoint
+app.use("/api/webhook-rz", express.raw({ type: "application/json" }), webhookRoutes);
+
+// Log webhook endpoint registration
+console.log("🔔 Webhook endpoint registered at: /api/webhook");
+console.log("🔔 Webhook endpoint registered at: /api/webhook/razorpay");
+console.log("🔔 Webhook endpoint registered at: /api/webhook-rz (Razorpay Dashboard)");
 
 app.use(express.json())
 app.use(cookieParser())
