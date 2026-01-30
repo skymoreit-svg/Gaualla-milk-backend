@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS orders (
         NOT NULL DEFAULT 'pending',
   type ENUM('onetime', 'daily', 'alternative', 'weekly', 'monthly') 
         NOT NULL DEFAULT 'onetime',
+        alternative_dates JSON DEFAULT NULL, -- stores array of ISO date strings for alternative orders
   notes TEXT DEFAULT NULL, -- optional field for special instructions
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

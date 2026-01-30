@@ -68,7 +68,8 @@ const site_user_id= req.user.id;
       address_id,
       cart_items,
       total_amount,
-      type
+      type,
+      selectedDates
     } = req.body;
 
     // ✅ Verify Razorpay signature
@@ -94,17 +95,39 @@ const site_user_id= req.user.id;
     };
     const dbType = typeMapping[type] || 'onetime'; // Default to 'onetime' if unknown
 
-    // ✅ Insert into orders table with PENDING payment status
+    //  Validate selectedDates for alternative orders
+    let alternativeDatesJson = null;
+    if (dbType === 'alternative') {
+      if (!selectedDates || !Array.isArray(selectedDates) || selectedDates.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Alternative orders must have at least one selected date"
+        });
+      }
+      // Convert Date objects/ISO strings to ISO date format (YYYY-MM-DD) using local date
+      alternativeDatesJson = JSON.stringify(
+        selectedDates.map(date => {
+          const d = new Date(date);
+          // Use local date (not UTC) to avoid timezone shifts
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })
+      );
+    }
+
+    // Insert into orders table with PENDING payment status
     // Webhook will update to 'paid' when payment is confirmed (source of truth)
     const [orderResult] = await pool.query(
-      `INSERT INTO orders (site_user_id, address_id, total_amount, status, payment_status, type)
-       VALUES (?, ?, ?, 'pending', 'pending', ?)`,
-      [site_user_id, address_id, total_amount, dbType]
+      `INSERT INTO orders (site_user_id, address_id, total_amount, status, payment_status, type, alternative_dates)
+       VALUES (?, ?, ?, 'pending', 'pending', ?, ?)`,
+      [site_user_id, address_id, total_amount, dbType, alternativeDatesJson]
     );
 
     const orderId = orderResult.insertId;
 
-    // ✅ Insert each cart item into order_items table
+    //  Insert each cart item into order_items table
     for (const item of cart_items) {
       await pool.query(
         `INSERT INTO order_items (order_id, product_id, quantity, price, start_date)
@@ -113,7 +136,7 @@ const site_user_id= req.user.id;
       );
     }
 
-    // ✅ Create transaction record for webhook reconciliation
+    //  Create transaction record for webhook reconciliation
     // This ensures webhooks can link payments to orders
     try {
       // Check if transaction already exists (created by webhook)
@@ -130,7 +153,7 @@ const site_user_id= req.user.id;
            WHERE razorpay_payment_id = ?`,
           [orderId, razorpay_payment_id]
         );
-        console.log(`✅ Transaction record updated for payment ${razorpay_payment_id} linked to order ${orderId}`);
+        console.log(` Transaction record updated for payment ${razorpay_payment_id} linked to order ${orderId}`);
         
         // If webhook already confirmed payment, update order status
         const [txn] = await pool.query(
@@ -142,7 +165,7 @@ const site_user_id= req.user.id;
             `UPDATE orders SET payment_status = 'paid', status = 'processing' WHERE id = ?`,
             [orderId]
           );
-          console.log(`✅ Order ${orderId} status updated to paid (webhook already confirmed)`);
+          console.log(` Order ${orderId} status updated to paid (webhook already confirmed)`);
         } else {
           // Even if webhook hasn't confirmed yet, check if payment was captured
           // This handles cases where webhook is delayed or fails
@@ -158,7 +181,7 @@ const site_user_id= req.user.id;
                 `UPDATE transactions SET status = 'captured', captured = true WHERE razorpay_payment_id = ?`,
                 [razorpay_payment_id]
               );
-              console.log(`✅ Order ${orderId} status updated to paid (payment verified via Razorpay API fallback)`);
+              console.log(` Order ${orderId} status updated to paid (payment verified via Razorpay API fallback)`);
             }
           } catch (apiError) {
             console.error("Error checking payment status from Razorpay:", apiError);
@@ -185,7 +208,7 @@ const site_user_id= req.user.id;
             null, // Payment method will be updated by webhook if available
           ]
         );
-        console.log(`✅ Transaction record created for payment ${razorpay_payment_id} linked to order ${orderId} (waiting for webhook confirmation)`);
+        console.log(` Transaction record created for payment ${razorpay_payment_id} linked to order ${orderId} (waiting for webhook confirmation)`);
         
         // Fallback: Check payment status directly from Razorpay API
         // This ensures order is updated even if webhook is delayed
@@ -200,7 +223,7 @@ const site_user_id= req.user.id;
               `UPDATE transactions SET status = 'captured', captured = true WHERE razorpay_payment_id = ?`,
               [razorpay_payment_id]
             );
-            console.log(`✅ Order ${orderId} status updated to paid (payment verified via Razorpay API fallback)`);
+            console.log(` Order ${orderId} status updated to paid (payment verified via Razorpay API fallback)`);
           }
         } catch (apiError) {
           console.error("Error checking payment status from Razorpay (non-critical):", apiError);
@@ -333,5 +356,3 @@ export const getSingleOrder = async (req, res) => {
       .json({ success: false, message: "Failed to fetch order" });
   }
 };
-
-

@@ -17,6 +17,7 @@ export const getAllOrders = async (req, res) => {
         o.status,
         o.payment_status,
         o.type,
+        o.alternative_dates,
         o.created_at,
         o.updated_at,
         u.name AS user_name,
@@ -119,8 +120,29 @@ export const getAllOrders = async (req, res) => {
           [order.id]
         );
 
+        // Parse alternative_dates JSON if type is 'alternative'
+        let alternativeDates = null;
+        if (order.type === 'alternative' && order.alternative_dates) {
+          try {
+            // If it's already an array, use it directly
+            if (Array.isArray(order.alternative_dates)) {
+              alternativeDates = order.alternative_dates;
+            } else if (typeof order.alternative_dates === 'string') {
+              // Try to clean up the string before parsing
+              const cleanedString = order.alternative_dates.trim();
+              alternativeDates = JSON.parse(cleanedString);
+            }
+          } catch (e) {
+            console.error(`Error parsing alternative_dates for order ${order.id}:`, e.message);
+            console.error('Raw value:', JSON.stringify(order.alternative_dates));
+            // If parsing fails, return null (dates won't be displayed but won't crash)
+            alternativeDates = null;
+          }
+        }
+
         return {
           ...order,
+          alternative_dates: alternativeDates, // Only include if parsed successfully
           items: items || [],
           item_count: items.length,
         };
@@ -186,6 +208,26 @@ export const getOrderById = async (req, res) => {
 
     const order = orders[0];
 
+    // Parse alternative_dates JSON if type is 'alternative'
+    let alternativeDates = null;
+    if (order.type === 'alternative' && order.alternative_dates) {
+      try {
+        // If it's already an array, use it directly
+        if (Array.isArray(order.alternative_dates)) {
+          alternativeDates = order.alternative_dates;
+        } else if (typeof order.alternative_dates === 'string') {
+          // Try to clean up the string before parsing
+          const cleanedString = order.alternative_dates.trim();
+          alternativeDates = JSON.parse(cleanedString);
+        }
+      } catch (e) {
+        console.error(`Error parsing alternative_dates for order ${order.id}:`, e.message);
+        console.error('Raw value:', JSON.stringify(order.alternative_dates));
+        // If parsing fails, return null (dates won't be displayed but won't crash)
+        alternativeDates = null;
+      }
+    }
+
     // Get order items
     const [items] = await pool.query(
       `SELECT 
@@ -221,6 +263,7 @@ export const getOrderById = async (req, res) => {
       success: true,
       order: {
         ...order,
+        alternative_dates: alternativeDates, // Only include if parsed successfully
         address: {
           first_name: order.first_name,
           last_name: order.last_name,
@@ -239,6 +282,7 @@ export const getOrderById = async (req, res) => {
           phone: order.user_phone,
         },
         items: items || [],
+        alternative_dates: alternativeDates,
         transactions: transactions || [],
         refunds: refunds || [],
       },
