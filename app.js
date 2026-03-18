@@ -1,4 +1,5 @@
 import express from "express"
+import { createServer } from "http"
 import dotenv  from "dotenv";
 import cors from "cors"
 import CategoryRoute from "./Route/CategoryRouters.js"
@@ -17,8 +18,14 @@ import paymentAdminRoutes from "./Route/paymentAdminRoutes.js"
 import orderAdminRoutes from "./Route/orderAdminRoutes.js"
 import db from "./config/db.js"   
 import adminRoutes from "./Route/adminRoutes.js"
-
 import userRoutes from "./Route/userRoutes.js";
+
+import riderAuthRoutes from "./Route/riderAuthRoutes.js"
+import riderRoutes from "./Route/riderRoutes.js"
+import riderAdminRoutes from "./Route/riderAdminRoutes.js"
+import assignmentRoutes from "./Route/assignmentRoutes.js"
+import settlementRoutes from "./Route/settlementRoutes.js"
+import { initSocket } from "./services/socketService.js"
 
 
 dotenv.config()
@@ -98,8 +105,20 @@ app.use('/api/user/razorpay', razorpayRoutes);
 
 app.use("/api/users", userRoutes);
 
+// Rider routes
+app.use("/api/rider/auth", riderAuthRoutes);
+app.use("/api/rider", riderRoutes);
+
+// Admin rider management routes
+app.use("/admin/riders", riderAdminRoutes);
+app.use("/admin/assignments", assignmentRoutes);
+app.use("/admin/settlements", settlementRoutes);
+
 const PORT = process.env.PORT || 9002;
 
-app.listen(PORT,()=>{
+const httpServer = createServer(app);
+initSocket(httpServer);
+
+httpServer.listen(PORT, () => {
     console.log(`http://localhost:${PORT}`)
 })

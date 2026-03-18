@@ -56,6 +56,93 @@ export const createOrder= async (req,res)=>{
  }
 
 
+export const createOrderDevBypass = async (req, res) => {
+  try {
+    const bypassEnabled =
+      process.env.NODE_ENV !== "production" ||
+      process.env.ENABLE_DEV_ORDER_BYPASS === "true";
+
+    if (!bypassEnabled) {
+      return res.status(403).json({
+        success: false,
+        message: "Dev bypass is disabled. Set ENABLE_DEV_ORDER_BYPASS=true to allow it.",
+      });
+    }
+
+    const site_user_id = req.user.id;
+    const { address_id, cart_items, total_amount, type, selectedDates } = req.body;
+
+    if (!address_id) {
+      return res.status(400).json({ success: false, message: "address_id is required" });
+    }
+    if (!Array.isArray(cart_items) || cart_items.length === 0) {
+      return res.status(400).json({ success: false, message: "cart_items are required" });
+    }
+    if (!total_amount || Number(total_amount) <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid total_amount" });
+    }
+
+    const typeMapping = {
+      one_time: "onetime",
+      daily: "daily",
+      alternative: "alternative",
+      weekly: "weekly",
+      monthly: "monthly",
+    };
+    const dbType = typeMapping[type] || "onetime";
+
+    let alternativeDatesJson = null;
+    if (dbType === "alternative") {
+      if (!selectedDates || !Array.isArray(selectedDates) || selectedDates.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Alternative orders must have at least one selected date",
+        });
+      }
+      alternativeDatesJson = JSON.stringify(
+        selectedDates.map((date) => {
+          const d = new Date(date);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        })
+      );
+    }
+
+    const [orderResult] = await pool.query(
+      `INSERT INTO orders (site_user_id, address_id, total_amount, status, payment_status, type, alternative_dates)
+       VALUES (?, ?, ?, 'processing', 'paid', ?, ?)`,
+      [site_user_id, address_id, total_amount, dbType, alternativeDatesJson]
+    );
+
+    const orderId = orderResult.insertId;
+
+    for (const item of cart_items) {
+      await pool.query(
+        `INSERT INTO order_items (order_id, product_id, quantity, price, start_date)
+         VALUES (?, ?, ?, ?, CURDATE())`,
+        [orderId, item.product_id, item.quantity, item.price]
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: "Order placed in development mode (payment bypassed)",
+      order_id: orderId,
+      payment_status: "paid",
+      bypassed_payment: true,
+    });
+  } catch (error) {
+    console.error("Error in createOrderDevBypass:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to place order in dev bypass mode",
+    });
+  }
+};
+
+
  export const verifyOrder=async(req,res)=>{
    try {
 const site_user_id= req.user.id;

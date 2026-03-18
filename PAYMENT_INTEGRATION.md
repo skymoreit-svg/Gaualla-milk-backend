@@ -86,7 +86,8 @@ Body:
   "description": "Order description",
   "customer_name": "John Doe",
   "customer_email": "john@example.com",
-  "customer_contact": "+919876543210",
+  "customer_contact": "+91 8378-000052
+",
   "expire_by_hours": 24,
   "notes": "Special instructions"
 }
