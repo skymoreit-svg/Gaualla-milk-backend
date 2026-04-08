@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS orders (
   site_user_id BIGINT(20) UNSIGNED NOT NULL,
   address_id BIGINT(20) UNSIGNED DEFAULT NULL,
   total_amount DECIMAL(12,2) NOT NULL CHECK (total_amount >= 0),
-  status ENUM('pending', 'processing', 'completed', 'cancelled', 'refunded') 
+  status ENUM('pending', 'processing', 'out_for_delivery', 'completed', 'cancelled', 'refunded') 
         NOT NULL DEFAULT 'pending',
   payment_status ENUM('pending', 'paid', 'failed', 'refunded') 
         NOT NULL DEFAULT 'pending',

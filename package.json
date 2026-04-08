@@ -16,7 +16,9 @@
     "seed:blogs": "node scripts/seedBlogs.js",
     "clear:blogs": "node scripts/clearBlogs.js",
     "admin:create": "node scripts/createAdmin.js",
-    "admin:update-password": "node scripts/updateAdminPassword.js"
+    "admin:update-password": "node scripts/updateAdminPassword.js",
+    "migrate:wishlists": "node scripts/migrateWishlists.js",
+    "migrate:all": "node scripts/migrate-all.js"
   },
   "author": "",
   "license": "ISC",

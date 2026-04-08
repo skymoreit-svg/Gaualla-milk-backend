@@ -139,17 +139,116 @@ const getUser= async(req,res)=>{
   return res.json({user,success:true})
 }
 
+const updateUser = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, email, phone } = req.body;
+
+    if (!name && !email && !phone) {
+      return res.status(400).json({ success: false, message: "At least one field is required" });
+    }
+
+    const [existing] = await pool.query(`SELECT * FROM users WHERE id = ?`, [userId]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const updatedName = name || existing[0].name;
+    const updatedEmail = email || existing[0].email;
+    const updatedPhone = phone || existing[0].phone;
+
+    if (email && email !== existing[0].email) {
+      const [dup] = await pool.query(`SELECT id FROM users WHERE email = ? AND id != ?`, [email, userId]);
+      if (dup.length > 0) {
+        return res.status(400).json({ success: false, message: "Email already in use" });
+      }
+    }
+
+    if (phone && phone !== existing[0].phone) {
+      const [dup] = await pool.query(`SELECT id FROM users WHERE phone = ? AND id != ?`, [phone, userId]);
+      if (dup.length > 0) {
+        return res.status(400).json({ success: false, message: "Phone number already in use" });
+      }
+    }
+
+    await pool.query(
+      `UPDATE users SET name = ?, email = ?, phone = ? WHERE id = ?`,
+      [updatedName, updatedEmail, updatedPhone, userId]
+    );
+
+    const [updatedRows] = await pool.query(`SELECT id, name, email, phone, created_at, updated_at FROM users WHERE id = ?`, [userId]);
+
+    return res.json({ success: true, message: "Profile updated successfully", user: updatedRows[0] });
+  } catch (error) {
+    console.error("Update user error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
 
 
 
 
 
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: "Old password and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
+    }
+
+    const [rows] = await pool.query(`SELECT password FROM users WHERE id = ?`, [userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const isMatch = await compairPassword(oldPassword, rows[0].password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect" });
+    }
+
+    const hashed = await hashedpassword(newPassword);
+    await pool.query(`UPDATE users SET password = ? WHERE id = ?`, [hashed, userId]);
+
+    return res.json({ success: true, message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+const saveFcmToken = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { fcm_token, platform } = req.body;
+
+    if (!fcm_token) {
+      return res.status(400).json({ success: false, message: "Push token is required" });
+    }
+
+    await pool.query(`UPDATE users SET fcm_token = NULL WHERE fcm_token = ? AND id != ?`, [fcm_token, userId]);
+    await pool.query(`UPDATE users SET fcm_token = ?, device_platform = ? WHERE id = ?`, [fcm_token, platform || "android", userId]);
+
+    return res.json({ success: true, message: "Push token saved" });
+  } catch (error) {
+    console.error("Save FCM token error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
 
 export const userController={
     SignupUser,
     LoginUser,
     logoutUser,
-    getUser
+    getUser,
+    updateUser,
+    changePassword,
+    saveFcmToken
 }
 
 

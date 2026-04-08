@@ -1,6 +1,7 @@
 import Razorpay  from "razorpay";
 import crypto from "crypto";
 import pool from "../../config.js";
+import { notifyUser } from "../../services/firebaseService.js";
 
  const razorpay= new  Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
@@ -322,11 +323,13 @@ const site_user_id= req.user.id;
       // Don't fail the order creation if transaction insert fails
     }
 
+    notifyUser(site_user_id, "Order Confirmed!", `Your order #${orderId} has been placed successfully.`, "new_order", { order_id: String(orderId) }).catch(() => {});
+
     return res.json({ 
       success: true, 
       message: "Order created. Payment confirmation pending via webhook.", 
       order_id: orderId,
-      payment_status: "pending" // Webhook will update this to 'paid'
+      payment_status: "pending"
     });
   } catch (error) {
     console.error("❌ Error in verifyOrder:", error);

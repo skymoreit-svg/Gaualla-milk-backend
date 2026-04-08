@@ -45,7 +45,7 @@ export const getDashboardStats = async (req, res) => {
     const statusBreakdown = {
       pending: 0,
       processing: 0,
-      "out for_delivery": 0,
+      "out_for_delivery": 0,
       completed: 0,
       cancelled: 0,
     };

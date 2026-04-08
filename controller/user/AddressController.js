@@ -113,6 +113,62 @@ export const getAddress = async (req, res) => {
   }
 };
 
+export const updateAddress = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { address_id } = req.params;
+    const { street, landmark, city, state, zip_code, country, latitude, longitude, address_type, is_default } = req.body;
+
+    if (!street || !city || !state || !zip_code) {
+      return res.status(400).json({ success: false, message: "Street, City, State and ZIP are required" });
+    }
+
+    const [existing] = await pool.query("SELECT * FROM newaddresses WHERE id = ? AND site_user_id = ?", [address_id, user_id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: "Address not found" });
+    }
+
+    const shouldSetAsDefault = is_default === 1 || is_default === true || is_default === "1";
+    if (shouldSetAsDefault) {
+      await pool.query("UPDATE newaddresses SET is_default = 0 WHERE site_user_id = ?", [user_id]);
+    }
+
+    await pool.query(
+      `UPDATE newaddresses SET street = ?, landmark = ?, city = ?, state = ?, zip_code = ?, country = ?,
+       latitude = ?, longitude = ?, address_type = ?, is_default = ? WHERE id = ? AND site_user_id = ?`,
+      [street, landmark || null, city, state, zip_code, country || 'India',
+       latitude || null, longitude || null, address_type || 'home',
+       shouldSetAsDefault ? 1 : 0, address_id, user_id]
+    );
+
+    res.json({ success: true, message: "Address updated successfully" });
+  } catch (error) {
+    console.error("Error updating address:", error);
+    res.status(500).json({ success: false, message: "Server error while updating address" });
+  }
+};
+
+export const deleteAddress = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { address_id } = req.params;
+
+    const [result] = await pool.query(
+      "DELETE FROM newaddresses WHERE id = ? AND site_user_id = ?",
+      [address_id, user_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Address not found" });
+    }
+
+    res.json({ success: true, message: "Address deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting address:", error);
+    res.status(500).json({ success: false, message: "Server error while deleting address" });
+  }
+};
+
 export const UpdatedefaultAddress = async (req, res) => {
   try {
     const user_id = req.user.id;

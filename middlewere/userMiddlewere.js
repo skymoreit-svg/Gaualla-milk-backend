@@ -24,6 +24,12 @@ export const userMiddleware = async (req, res, next) => {
   req.user= rows[0];
 next()
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ success: false, message: "Token expired, please login again" });
+    }
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ success: false, message: "Invalid token, please login again" });
+    }
     console.error("User middleware error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }

@@ -25,22 +25,12 @@ import riderRoutes from "./Route/riderRoutes.js"
 import riderAdminRoutes from "./Route/riderAdminRoutes.js"
 import assignmentRoutes from "./Route/assignmentRoutes.js"
 import settlementRoutes from "./Route/settlementRoutes.js"
+import wishlistRoutes from "./Route/wishlistRoutes.js"
 import { initSocket } from "./services/socketService.js"
 
 
 dotenv.config()
 
-// Verify webhook secret is loaded on startup
-const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-if (webhookSecret) {
-  console.log(`✅ RAZORPAY_WEBHOOK_SECRET loaded successfully`);
-  console.log(`   - Secret Length: ${webhookSecret.length} characters`);
-  console.log(`   - Secret Preview: ${webhookSecret.substring(0, 10)}...${webhookSecret.substring(webhookSecret.length - 5)} (masked)`);
-} else {
-  console.error(`❌ WARNING: RAZORPAY_WEBHOOK_SECRET is not configured!`);
-  console.error(`❌ Webhook signature verification will fail!`);
-  console.error(`❌ Please add RAZORPAY_WEBHOOK_SECRET to your .env file`);
-}
 
 const app= express()  
 
@@ -102,6 +92,7 @@ app.use("/api/user/order",orderRoute)
 app.use("/api/user/payment-links", paymentLinkRoutes);
 
 app.use('/api/user/razorpay', razorpayRoutes);
+app.use("/api/user/wishlist", wishlistRoutes);
 
 app.use("/api/users", userRoutes);
 

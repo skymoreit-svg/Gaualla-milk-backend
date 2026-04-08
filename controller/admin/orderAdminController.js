@@ -305,7 +305,7 @@ export const updateOrderStatus = async (req, res) => {
     const { status } = req.body;
 
     // Validate status
-    const validStatuses = ["pending", "processing", "out for_delivery", "completed", "cancelled", "refunded"];
+    const validStatuses = ["pending", "processing", "out_for_delivery", "completed", "cancelled", "refunded"];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,

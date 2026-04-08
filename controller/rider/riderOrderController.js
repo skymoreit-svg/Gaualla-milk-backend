@@ -1,6 +1,6 @@
 import pool from "../../config.js";
 import { emitToAdmins, emitOrderUpdate } from "../../services/socketService.js";
-import { createNotification } from "../../services/firebaseService.js";
+import { createNotification, notifyUser } from "../../services/firebaseService.js";
 
 export const getAssignedOrders = async (req, res) => {
   try {
@@ -197,12 +197,12 @@ export const acceptOrder = async (req, res) => {
       rider_name: req.rider.name,
     });
 
-    await createNotification("user", assignments[0].site_user_id,
+    notifyUser(assignments[0].site_user_id,
       "Rider Accepted Your Order",
       `${req.rider.name} has accepted your order and will pick it up soon.`,
       "order_accepted",
-      { order_id: assignments[0].order_id }
-    );
+      { order_id: String(assignments[0].order_id) }
+    ).catch(() => {});
 
     return res.json({ success: true, message: "Order accepted" });
   } catch (error) {
@@ -293,6 +293,13 @@ export const pickupOrder = async (req, res) => {
       delivery_status: "picked_up",
     });
 
+    notifyUser(assignments[0].site_user_id,
+      "Order Picked Up",
+      "Your order has been picked up and is being prepared for delivery.",
+      "order_accepted",
+      { order_id: String(assignments[0].order_id) }
+    ).catch(() => {});
+
     return res.json({ success: true, message: "Order picked up" });
   } catch (error) {
     console.error("Pickup order error:", error);
@@ -339,12 +346,12 @@ export const startDelivery = async (req, res) => {
       rider_name: req.rider.name,
     });
 
-    await createNotification("user", assignments[0].site_user_id,
+    notifyUser(assignments[0].site_user_id,
       "Your Order is On the Way!",
       `${req.rider.name} is on the way to deliver your order.`,
       "order_assigned",
-      { order_id: assignments[0].order_id }
-    );
+      { order_id: String(assignments[0].order_id) }
+    ).catch(() => {});
 
     return res.json({ success: true, message: "Delivery started" });
   } catch (error) {
@@ -407,12 +414,12 @@ export const deliverOrder = async (req, res) => {
       delivery_status: "delivered",
     });
 
-    await createNotification("user", assignments[0].site_user_id,
+    notifyUser(assignments[0].site_user_id,
       "Order Delivered!",
       "Your order has been delivered successfully.",
       "order_delivered",
-      { order_id: assignments[0].order_id }
-    );
+      { order_id: String(assignments[0].order_id) }
+    ).catch(() => {});
 
     return res.json({ success: true, message: "Order delivered successfully" });
   } catch (error) {

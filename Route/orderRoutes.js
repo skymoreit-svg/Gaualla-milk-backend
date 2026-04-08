@@ -12,7 +12,7 @@ import { getOrderTracking, getNotifications, markNotificationsRead } from "../co
 
 const route = express.Router();
 
-route.get("/key", getRazorpayKey)
+route.get("/key", userMiddleware, getRazorpayKey)
 route.post("/create",userMiddleware,createOrder)
 route.post("/create-dev", userMiddleware, createOrderDevBypass)
 route.post("/verify",userMiddleware,verifyOrder)

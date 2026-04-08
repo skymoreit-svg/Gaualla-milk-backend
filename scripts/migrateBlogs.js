@@ -134,6 +134,7 @@ async function migrateBlogs() {
     process.exitCode = 1;
   } finally {
     if (connection) connection.release();
+    await db.end();
   }
 }
 
