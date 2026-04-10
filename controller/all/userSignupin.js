@@ -241,6 +241,54 @@ const saveFcmToken = async (req, res) => {
   }
 };
 
+const deleteAccount = async (req, res) => {
+  const userId = req.user?.id;
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Remove user-scoped data first to avoid FK conflicts.
+    await connection.query(`DELETE FROM carts WHERE user_id = ?`, [userId]);
+    await connection.query(`DELETE FROM wishlists WHERE user_id = ?`, [userId]);
+    await connection.query(`DELETE FROM newaddresses WHERE site_user_id = ?`, [userId]);
+
+    // Keep order history but remove direct user/device identifiers.
+    await connection.query(`UPDATE transactions SET site_user_id = NULL WHERE site_user_id = ?`, [userId]);
+    await connection.query(`UPDATE orders SET site_user_id = NULL, address_id = NULL WHERE site_user_id = ?`, [userId]);
+
+    const [deleted] = await connection.query(`DELETE FROM users WHERE id = ?`, [userId]);
+
+    // Fallback: anonymize the user if hard delete is blocked by DB constraints.
+    if (!deleted.affectedRows) {
+      await connection.query(
+        `UPDATE users
+         SET name = ?, email = ?, phone = ?, password = ?, fcm_token = NULL, device_platform = NULL, updated_at = NOW()
+         WHERE id = ?`,
+        [`Deleted User ${userId}`, `deleted_${userId}@example.com`, `deleted_${userId}`, "deleted_account", userId]
+      );
+    }
+
+    await connection.commit();
+
+    res.cookie("user", "", {
+      path: "/",
+      httpOnly: true,
+      expires: new Date(Date.now()),
+      sameSite: "none",
+      secure: true,
+    });
+
+    return res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Delete account error:", error);
+    return res.status(500).json({ success: false, message: "Failed to delete account" });
+  } finally {
+    connection.release();
+  }
+};
+
 export const userController={
     SignupUser,
     LoginUser,
@@ -248,7 +296,8 @@ export const userController={
     getUser,
     updateUser,
     changePassword,
-    saveFcmToken
+    saveFcmToken,
+    deleteAccount
 }
 
 

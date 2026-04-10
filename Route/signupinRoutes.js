@@ -10,5 +10,6 @@ routes.get("/getuser",userMiddleware,userController.getUser)
 routes.put("/updateuser",userMiddleware,userController.updateUser)
 routes.put("/changepassword",userMiddleware,userController.changePassword)
 routes.post("/fcm-token",userMiddleware,userController.saveFcmToken)
+routes.delete("/delete-account",userMiddleware,userController.deleteAccount)
 
 export default routes;
